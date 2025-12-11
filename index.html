@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Калькулятор прозрачки</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --accent: #22d3ee;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --border: #1f2937;
+      --danger: #f97316;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 20% 20%, rgba(34,211,238,0.08), transparent 32%), radial-gradient(circle at 80% 10%, rgba(249,115,22,0.08), transparent 34%), radial-gradient(circle at 50% 80%, rgba(59,130,246,0.1), transparent 36%), var(--bg);
+      color: var(--text);
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 32px 16px;
+    }
+    .card {
+      width: min(960px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 20px 70px rgba(0,0,0,0.35);
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 24px;
+      letter-spacing: 0.01em;
+    }
+    .sub {
+      margin: 0 0 20px;
+      color: var(--muted);
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    input[type="number"] {
+      background: #0b1224;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 16px;
+      width: 180px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+    input[type="number"]:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(34,211,238,0.15);
+    }
+    button {
+      background: linear-gradient(120deg, #22d3ee, #3b82f6);
+      color: #0b1224;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 15px;
+      transition: transform 0.1s ease, box-shadow 0.2s ease;
+      box-shadow: 0 12px 30px rgba(34,211,238,0.25);
+    }
+    button:active { transform: translateY(1px); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+      overflow: hidden;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+    }
+    th {
+      background: #0b1224;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      border-bottom: 1px solid var(--border);
+    }
+    tr:nth-child(even) td { background: #0c1326; }
+    tr:nth-child(odd) td { background: #0e1429; }
+    .warn { color: var(--danger); font-weight: 600; }
+    .note {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Калькулятор Transparent</h1>
+    <p class="sub">Два ведра: старт 1% и старт 2%. Можно указать реальный остаток перед каждым шагом.</p>
+
+    <div class="controls">
+      <label>
+        Вес ведра для цепочки 1% (г)
+        <input id="weight1" type="number" min="0.01" step="0.1" value="400">
+      </label>
+      <label>
+        Вес ведра для цепочки 2% (г)
+        <input id="weight2" type="number" min="0.01" step="0.1" value="400">
+      </label>
+      <button id="calcBtn">Рассчитать</button>
+      <span id="warn" class="warn" hidden>Вес должен быть &gt; 0</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Цепочка</th>
+          <th>Переход</th>
+          <th>Факт вес до (г)</th>
+          <th>Transparent в весе (г)</th>
+          <th>Краска в весе (г)</th>
+          <th>Вес до (г)</th>
+          <th>Добавить Transparent (г)</th>
+          <th>Вес после (г)</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+
+    <p class="note">
+      Формула добавки: Δ = (P<sub>target</sub> − P<sub>текущий</sub>) × Вес / (1 − P<sub>target</sub>).
+      Расчёт ведётся по цепочке, вес после доливки становится стартом для следующего шага.
+    </p>
+  </div>
+
+  <script>
+    const chain1 = [
+      { id: '1-4', from: 0.01, to: 0.04 },
+      { id: '4-16', from: 0.04, to: 0.16 },
+      { id: '16-64', from: 0.16, to: 0.64 },
+    ];
+    const chain2 = [
+      { id: '2-8', from: 0.02, to: 0.08 },
+      { id: '8-32', from: 0.08, to: 0.32 },
+    ];
+
+    const weightOverrides = {};
+
+    const weight1 = document.getElementById('weight1');
+    const weight2 = document.getElementById('weight2');
+    const rows = document.getElementById('rows');
+    const warn = document.getElementById('warn');
+
+    const fmt = (v) => (Math.round(v * 100) / 100).toFixed(2);
+
+    function calcDelta(weight, fromPct, toPct) {
+      // Общая формула: delta = ((to - from) * W) / (1 - to)
+      return ((toPct - fromPct) * weight) / (1 - toPct);
+    }
+
+    const rowRefs = new Map();
+
+    function ensureRow(id) {
+      if (rowRefs.has(id)) return rowRefs.get(id);
+      const tr = document.createElement('tr');
+      tr.dataset.id = id;
+      tr.innerHTML = `
+        <td class="chain"></td>
+        <td class="step"></td>
+        <td><input class="w-override" data-id="${id}" type="number" step="0.1" min="0" placeholder=""></td>
+        <td><span class="transp"></span></td>
+        <td><span class="paint"></span></td>
+        <td><span class="weight"></span></td>
+        <td><span class="add"></span></td>
+        <td><span class="after"></span></td>
+      `;
+      rows.appendChild(tr);
+      const ref = {
+        tr,
+        chain: tr.querySelector('.chain'),
+        step: tr.querySelector('.step'),
+        override: tr.querySelector('.w-override'),
+        transp: tr.querySelector('.transp'),
+        paint: tr.querySelector('.paint'),
+        weight: tr.querySelector('.weight'),
+        add: tr.querySelector('.add'),
+        after: tr.querySelector('.after'),
+      };
+      rowRefs.set(id, ref);
+      return ref;
+    }
+
+    function renderChain(label, startPct, startWeight, steps, usedIds) {
+      let currentWeightAuto = startWeight;
+      let currentPct = startPct;
+
+      steps.forEach((p) => {
+        usedIds.add(p.id);
+        const row = ensureRow(p.id);
+        row.tr.style.display = '';
+        row.chain.textContent = label;
+        row.step.textContent = `${Math.round(p.from * 100)}% → ${Math.round(p.to * 100)}%`;
+
+        const override = weightOverrides[p.id];
+        const weightBefore = Number.isFinite(override) && override > 0 ? override : currentWeightAuto;
+        row.override.placeholder = fmt(currentWeightAuto);
+        if (!(Number.isFinite(override) && override > 0)) {
+          row.override.value = '';
+        }
+
+        const transpBefore = weightBefore * currentPct;
+        const paintBefore = weightBefore - transpBefore;
+        const add = calcDelta(weightBefore, currentPct, p.to);
+        const nextWeight = weightBefore + add;
+
+        row.transp.textContent = fmt(transpBefore);
+        row.paint.textContent = fmt(paintBefore);
+        row.weight.textContent = fmt(weightBefore);
+        row.add.textContent = fmt(add);
+        row.after.textContent = fmt(nextWeight);
+
+        currentWeightAuto = nextWeight;
+        currentPct = p.to;
+      });
+    }
+
+    function render() {
+      const w1 = parseFloat(weight1.value);
+      const w2 = parseFloat(weight2.value);
+      const valid1 = Number.isFinite(w1) && w1 > 0;
+      const valid2 = Number.isFinite(w2) && w2 > 0;
+      if (!valid1 && !valid2) {
+        warn.hidden = false;
+        rows.innerHTML = '';
+        rowRefs.clear();
+        return;
+      }
+      warn.hidden = true;
+      const usedIds = new Set();
+      if (valid1) renderChain('1% цепочка', 0.01, w1, chain1, usedIds);
+      if (valid2) renderChain('2% цепочка', 0.02, w2, chain2, usedIds);
+
+      rowRefs.forEach((ref, id) => {
+        if (!usedIds.has(id)) {
+          ref.tr.style.display = 'none';
+        }
+      });
+    }
+
+    document.getElementById('calcBtn').addEventListener('click', render);
+    weight1.addEventListener('input', render);
+    weight2.addEventListener('input', render);
+    rows.addEventListener('input', (e) => {
+      if (e.target.classList.contains('w-override')) {
+        const id = e.target.dataset.id;
+        const val = parseFloat(e.target.value);
+        if (Number.isFinite(val) && val > 0) {
+          weightOverrides[id] = val;
+        } else {
+          delete weightOverrides[id];
+        }
+        render();
+      }
+    });
+    render();
+  </script>
+</body>
+</html>
+
